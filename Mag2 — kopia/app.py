@@ -20,19 +20,58 @@ def allowed_file(filename):
 def home():
     return render_template('index.html', filename=request.args.get('filename'))
 
-@app.route('/upload', methods=['POST'])
+@app.route('/upload')
+def upload():
+    return render_template('upload.html', filename=request.args.get('filename'))
+
+@app.route('/upload', methods=['POST', 'GET'])
 def upload_file():
-    if 'file' not in request.files:
-        return 'No file part'
-    file = request.files['file']
-    if file.filename == '':
-        return 'No selected file'
-    if file and allowed_file(file.filename):
-        filename = file.filename
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        return redirect(url_for('home', filename=filename))
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            return 'No file part'
+        
+        file = request.files['file']
+        if file.filename == '':
+            return 'No selected file'
+        
+        if file and allowed_file(file.filename):
+            filename = file.filename
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            # Zmieniamy przekierowanie na stronę uploadu
+           # return redirect(url_for('upload_file', filename=filename))
+            return redirect(url_for('upload', filename=filename))
+
     return 'Invalid file format'
+
+ #   return render_template('upload.html')
+'''
+@app.route('/upload', methods=['POST', 'GET'])
+def upload_file():
+    if request.method == 'POST':
+        # Sprawdzamy, czy plik istnieje w formularzu
+        if 'file' not in request.files:
+            return 'No file part'
+        
+        file = request.files['file']
+        
+        # Sprawdzamy, czy plik ma nazwę
+        if file.filename == '':
+            return 'No selected file'
+        
+        # Sprawdzamy, czy plik ma dozwolone rozszerzenie
+        if file and allowed_file(file.filename):
+            filename = file.filename
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            
+            # Zapisujemy plik w folderze
+            file.save(filepath)
+
+            # Przekierowanie na stronę z uploadem
+            return redirect(url_for('upload_file', filename=filename))
+
+    # Renderowanie strony upload
+    return render_template('upload.html')'''
 
 @app.route('/uploads/<filename>')
 def display_pdf(filename):
@@ -40,19 +79,23 @@ def display_pdf(filename):
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
     except FileNotFoundError:
         return 'File not found', 404
+    
 
-@app.route('/find_words', methods=['POST'])
+@app.route('/find_words', methods=['POST', 'GET'])
 def find_words():
-    filename = request.form.get('filename')
-    if not filename:
-        return jsonify({'error': 'No file selected'}), 400
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if not os.path.exists(filepath):
-        return jsonify({'error': 'File not found'}), 404
-    text = extract_text(filepath)
-    return jsonify({'highlighted_phrases': extract_keywords(text)})
+    if request.method == 'POST':
+        filename = request.form.get('filename')
+        if not filename:
+            return jsonify({'error': 'No file selected'}), 400
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'File not found'}), 404
+        text = extract_text(filepath)
+        return jsonify({'highlighted_phrases': extract_keywords(text)})
+    return render_template('upload.html')
 
-@app.route('/fetch_acts', methods=['POST'])
+
+@app.route('/fetch_acts', methods=['POST', 'GET'])
 def fetch_acts():
     publisher_map = {
         "DziennikUstaw": "DU",
@@ -60,6 +103,7 @@ def fetch_acts():
     }
     
     publisher = request.form.get('publisher')
+    print(f"Publisher: {publisher}")  # Debugowanie, żeby sprawdzić wartość
     year = request.form.get('year')
     count = int(request.form.get('count', 10))  # Domyślnie pobieramy 10 aktów, jeśli nie podano
 
@@ -106,6 +150,8 @@ def fetch_acts():
         return jsonify({'acts': acts, 'keyword_map': keyword_map})
     except Exception as e:
         return jsonify({'error': 'Exception occurred', 'details': str(e)}), 500
+    
+    
 
 @app.route('/find_words_api', methods=['POST'])
 def find_words_api():
@@ -119,11 +165,19 @@ def extract_keywords(text):
     nlp = spacy.load("pl_core_news_sm")
     doc = nlp(text)
 
+    # Lista nazw miesięcy
+    months = ["styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień"]
+    excluded_words = ["ustawa", "rozporządzenie", "dzień"]
+
     # Preprocessing tekstu: lematyzacja, usuwanie stop-słów, usuwanie znaków specjalnych i cyfr
     tokens = [
         token.lemma_ for token in doc 
         if not token.is_stop and not token.is_punct and not token.is_digit
         and len(token.text.strip()) > 2  # Pomija bardzo krótkie tokeny
+        and token.text.lower() not in months  # Pomija nazwy miesięcy
+        and token.lemma_.lower() not in months  # Dodane sprawdzenie lematyzowanej formy tokenu
+        and token.text.lower() not in excluded_words  # Pomija słowa na liście wykluczeń
+        and token.lemma_.lower() not in excluded_words  # Pomija lematyzowane formy słów na liście wykluczeń
     ]
     
     # Dodatkowe czyszczenie (usuwanie spacji i nowych linii)
