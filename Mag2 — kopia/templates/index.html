@@ -5,17 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link
-            rel="stylesheet"
-            href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
-            integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
-            crossorigin="anonymous"
-        />
-        <link
-            rel="stylesheet"
-            href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
-            crossorigin="anonymous"
-        />
-    <title>Strona główna</title>
+        rel="stylesheet"
+        href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+        crossorigin="anonymous"
+    />
+    <link
+        rel="stylesheet"
+        href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
+        crossorigin="anonymous"
+    />
+    <title>Fetch acts</title>
     <title>Upload and View PDF</title>
     <style>
         /* Styl drzewa */
@@ -90,8 +90,93 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* Kontener dla zawartości strony */
+        .container {
+            max-width: 1200px;   /* szerokosc zawartości na stronie */
+            margin: 40px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Stylizacja formularza */
+        label {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        input, select, button {
+            margin-bottom: 20px;
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        /* Przycisk powrotu na górę */
+        .scroll-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            font-size: 24px;
+            padding: 12px 16px;
+            border-radius: 50%;
+            transition: opacity 0.3s ease-in-out;
+            font-weight: bold;
+        }
+
+        .scroll-to-top:hover {
+            background: #0056b3;
+        }
     </style>
-    
+</head>
+
+<body style="background-color:#DDDDDD">
+    <!-- Nawigacja -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbar">
+            <div class="navbar-nav">
+                <a class="nav-item nav-link" href="{{ url_for('main') }}">Main info</a>
+                <a class="nav-item nav-link" href="{{ url_for('home') }}">Fetch Acts</a>
+                <a class="nav-item nav-link" href="{{ url_for('upload_file') }}">Upload PDF</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Główna zawartość strony w kontenerze -->
+    <div class="container">
+        <h2>Fetch Acts:</h2>
+        <label for="publisher">Publisher:</label>
+        <select id="publisher">
+            <option value="DziennikUstaw">Dziennik Ustaw</option>
+            <option value="MonitorPolski">Monitor Polski</option>
+        </select>
+        <label for="year">Year:</label>
+        <input type="number" id="year" value="2020">
+        <label for="count">Number of Acts:</label>
+        <input type="number" id="count" value="10">
+        <button type="button" onclick="fetchActs()">Fetch Acts</button>
+
+        <h2>Acts Tree:</h2>
+        <div id="acts-tree" class="tree"></div>
+    </div>
+
+    <!-- Loader -->
+    <div id="loader">
+        <div class="loader-spinner"></div>
+    </div>
+
+    <!-- Przycisk powrotu na górę -->
+    <a href="#" class="scroll-to-top">↑</a>
+
     <script>
         function toggleTree(event) {
             const target = event.target;
@@ -165,45 +250,6 @@
             }
         }
     </script>
-</head>
-<body  style="background-color:#DDDDDD">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <button
-        class="navbar-toggler"
-        type="button"
-        data-toggle="collapse"
-        data-target="#navbar"
-    >
-        <span class="navbar-toggler-icon"></span>
-    </button>
-        <div class="collapse navbar-collapse" id="navbar">
-            <div class="navbar-nav">
-                <a class="nav-item nav-link" id="home" href="{{ url_for('home') }}">Home</a>
-                <a class="nav-item nav-link" id="upload_file"  href="{{ url_for('upload_file') }}">Upload PDF</a>
-                <a class="nav-item nav-link" id="fetch_acts" href="{{ url_for('fetch_acts') }}">Fetch Acts</a>
-            </div>
-        </div>
-    </nav>
-
-    <h2>Fetch Acts:</h2>
-    <label for="publisher">Publisher:</label>
-    <select id="publisher">
-        <option value="DziennikUstaw">Dziennik Ustaw</option>
-        <option value="MonitorPolski">Monitor Polski</option>
-    </select>
-    <label for="year">Year:</label>
-    <input type="number" id="year" value="2020">
-    <label for="count">Number of Acts:</label>
-    <input type="number" id="count" value="10">
-    <button type="button" onclick="fetchActs()">Fetch Acts</button>
-
-    <h2>Acts Tree:</h2>
-    <div id="acts-tree" class="tree"></div>
-
-    <!-- Loader -->
-    <div id="loader">
-        <div class="loader-spinner"></div>
-    </div>
 </body>
 
 </html>

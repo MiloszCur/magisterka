@@ -24,6 +24,10 @@ def home():
 def upload():
     return render_template('upload.html', filename=request.args.get('filename'))
 
+@app.route('/main')
+def main():
+    return render_template('main.html', filename=request.args.get('filename'))
+
 @app.route('/upload', methods=['POST', 'GET'])
 def upload_file():
     if request.method == 'POST':

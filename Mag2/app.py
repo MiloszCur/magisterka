@@ -106,7 +106,7 @@ def fetch_acts():
         return jsonify({'acts': acts, 'keyword_map': keyword_map})
     except Exception as e:
         return jsonify({'error': 'Exception occurred', 'details': str(e)}), 500
-
+o
 @app.route('/find_words_api', methods=['POST'])
 def find_words_api():
     text = request.form.get('text')
