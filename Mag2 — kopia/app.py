@@ -133,6 +133,12 @@ def fetch_acts():
         for act in acts:
             title = act.get('title', '')
             content = act.get('content', '')
+            act_id = act.get('id') ##
+
+             #  link do strony z treścią aktu
+            #act_url = url_for('display_act', act_id=act_id) if act_id else None
+            act_url = f'http://api.sejm.gov.pl/eli/acts/{publisher_map[publisher]}/{year}/{act_id}' if act_id else None
+
             
             # Wyciąganie słów kluczowych z treści lub tytułu
             keywords = extract_keywords(content if content else title)
@@ -154,7 +160,20 @@ def fetch_acts():
         return jsonify({'acts': acts, 'keyword_map': keyword_map})
     except Exception as e:
         return jsonify({'error': 'Exception occurred', 'details': str(e)}), 500
-    
+
+@app.route('/act/<act_id>')
+def display_act(act_id):
+    api_url = f'http://api.sejm.gov.pl/eli/acts/details/{act_id}'
+    try:
+        response = requests.get(api_url)
+        if response.status_code != 200:
+            return 'Act not found', 404
+
+        act_data = response.json()
+        return render_template('act.html', act=act_data)
+    except Exception as e:
+        return f'Error loading act: {str(e)}', 500
+
     
 
 @app.route('/find_words_api', methods=['POST'])
@@ -167,6 +186,7 @@ def find_words_api():
 def extract_keywords(text):
     # Używamy spacy do przetwarzania tekstu
     nlp = spacy.load("pl_core_news_sm")
+
     doc = nlp(text)
 
     # Lista nazw miesięcy

@@ -223,17 +223,36 @@
                     acts.sort();
 
                     treeHtml += `<li><span class="toggle">${keyword}</span><ul style="display: none;">`;
-
+                        
                     acts.forEach(actTitle => {
                         const act = data.acts.find(a => a.title === actTitle);
+                      // Jeśli URL jest dostępny, dodaj link; jeśli nie, dodaj tekst "Link niedostępny"
                         treeHtml += `<li>
                             ${actTitle}
-                            ${act && act.url ? `<a href="${act.url}" class="act-button" target="_blank">View Act</a>` : ''}
+                            ${act && act.url ? 
+                                `<a href="${act.url}" class="act-button" target="_blank">View Act</a>` : 
+                                `<span class="act-button">Link not available</span>`
+                            }
                         </li>`;
                     });
 
                     treeHtml += '</ul></li>';
                 });
+
+ //               sortedKeywords.forEach(keyword => {
+  //                  let acts = data.keyword_map[keyword];
+
+  //                  acts.sort((a, b) => a.title.localeCompare(b.title));
+//
+  //                  treeHtml += `<li><span class="toggle">${keyword}</span><ul style="display: none;">`;
+//
+  //                  acts.forEach(act => {
+    //                    treeHtml += `<li><a href="${act.url}" target="_blank">${act.title}</a></li>`;  //  Dodane wyświetlanie linków
+      //              });
+
+//                    treeHtml += '</ul></li>';
+  //              });
+
 
                 treeHtml += '</ul>';
                 actsTree.innerHTML = treeHtml;
