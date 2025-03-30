@@ -137,19 +137,26 @@ def fetch_acts():
 
              #  link do strony z treścią aktu
             #act_url = url_for('display_act', act_id=act_id) if act_id else None
-            act_url = f'http://api.sejm.gov.pl/eli/acts/{publisher_map[publisher]}/{year}/{act_id}' if act_id else None
+        ##    act_url = f'http://api.sejm.gov.pl/eli/acts/{publisher_map[publisher]}/{year}/{act_id}' if act_id else None
+            
+             # Tworzymy link na podstawie roku i numeru aktu
+            if act_id:
+                act_url = f'https://dziennikustaw.gov.pl/DU/{year}/{act_id}'
+            else:
+                act_url = None  # Jeśli brak ID, nie generujemy linku
 
+            act['url'] = act_url  # Dodajemy link do aktu
             
             # Wyciąganie słów kluczowych z treści lub tytułu
             keywords = extract_keywords(content if content else title)
             act['highlighted_phrases'] = keywords
             
             # Tworzymy URL do pełnej wersji aktu (przykład)
-            act_id = act.get('id')  # Załóżmy, że mamy identyfikator aktu
-            if act_id:
-                act['url'] = f'http://api.sejm.gov.pl/eli/acts/{publisher_map[publisher]}/{year}/{act_id}'
-            else:
-                act['url'] = None  # Jeśli nie ma ID, nie generujemy linku
+          ###  act_id = act.get('id')  # Załóżmy, że mamy identyfikator aktu
+         ###   if act_id:
+        ###        act['url'] = f'http://api.sejm.gov.pl/eli/acts/{publisher_map[publisher]}/{year}/{act_id}'
+    ###        else:
+      ###          act['url'] = None  # Jeśli nie ma ID, nie generujemy linku
 
             # Mapa słów kluczowych do aktów
             for keyword in keywords:
