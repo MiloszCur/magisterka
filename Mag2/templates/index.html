@@ -6,6 +6,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload and View PDF</title>
     <style>
+        /* Styl drzewa */
+        .tree {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+
+        .tree ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+
+        .tree li {
+            margin: 5px 0;
+            cursor: pointer;
+        }
+
+        .tree .toggle::before {
+            content: "▶";
+            display: inline-block;
+            margin-right: 5px;
+            font-size: 12px;
+        }
+
+        .tree .expanded::before {
+            content: "▼";
+        }
+
+        .act-button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+        }
+
+        .act-button:hover {
+            background-color: #2980b9;
+        }
+
         /* Styl loadera */
         #loader {
             position: fixed;
@@ -20,7 +60,6 @@
             color: white;
         }
 
-        /* Kręcący się loader */
         .loader-spinner {
             border: 8px solid #f3f3f3;
             border-top: 8px solid #3498db;
@@ -30,7 +69,6 @@
             animation: spin 2s linear infinite;
         }
 
-        /* Animacja spinnera */
         @keyframes spin {
             0% {
                 transform: rotate(0deg);
@@ -40,59 +78,26 @@
                 transform: rotate(360deg);
             }
         }
-
-        /* Styl dla tabeli */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        table,
-        th,
-        td {
-            border: 1px solid black;
-        }
-
-        th,
-        td {
-            padding: 10px;
-            text-align: left;
-        }
-
-        .act-button {
-            margin-top: 10px;
-            display: inline-block;
-            padding: 8px 16px;
-            background-color: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-
-        .act-button:hover {
-            background-color: #2980b9;
-        }
     </style>
     <script>
-        // Funkcja do wyświetlania loadera
-        function showLoader() {
-            const loader = document.getElementById('loader');
-            loader.style.display = 'flex';
+        function toggleTree(event) {
+            const target = event.target;
+            if (target.classList.contains('toggle')) {
+                target.classList.toggle('expanded');
+                const subList = target.nextElementSibling;
+                if (subList) {
+                    subList.style.display = subList.style.display === 'none' ? 'block' : 'none';
+                }
+            }
         }
 
-        function hideLoader() {
-            const loader = document.getElementById('loader');
-            loader.style.display = 'none';
-        }
-
-        // Funkcja wywołana po pobraniu aktów
         async function fetchActs() {
             const publisher = document.getElementById('publisher').value;
             const year = document.getElementById('year').value;
             const count = document.getElementById('count').value;
 
             // Pokazanie loadera
-            showLoader();
+            document.getElementById('loader').style.display = 'flex';
 
             const formData = new FormData();
             formData.append('publisher', publisher);
@@ -106,56 +111,46 @@
 
             if (response.ok) {
                 const data = await response.json();
-                const actsDiv = document.getElementById('acts');
-                let actsHtml = '<h3>Available Acts:</h3><ul>';
+                const actsTree = document.getElementById('acts-tree');
 
-                // Pętla przez akty
-                data.acts.forEach(act => {
-                    actsHtml += `
-                        <li>
-                            <strong>${act.title}</strong><br>
-                            Keywords: ${act.highlighted_phrases.join(' ')}<br>
-                            ${act.url ? `<a href="${act.url}" class="act-button" target="_blank">View Full Act</a>` : 'No URL available'}
-                        </li>`;
+                // Sortowanie kategorii alfabetycznie
+                const sortedKeywords = Object.keys(data.keyword_map).sort();
+
+                let treeHtml = '<ul>';
+
+                sortedKeywords.forEach(keyword => {
+                    let acts = data.keyword_map[keyword];
+
+                    // Sortowanie aktów alfabetycznie
+                    acts.sort();
+
+                    treeHtml += `<li><span class="toggle">${keyword}</span><ul style="display: none;">`;
+
+                    acts.forEach(actTitle => {
+                        const act = data.acts.find(a => a.title === actTitle);
+                        treeHtml += `<li>
+        ${actTitle}
+        <button class="act-button">Test</button>
+        ${act && act.url ? `<a href="${act.url}" class="act-button" target="_blank">View Act</a>` : ''}
+    </li>`;
+                    });
+
+
+                    treeHtml += '</ul></li>';
                 });
 
-                actsHtml += '</ul>';
-                actsDiv.innerHTML = actsHtml;
+                treeHtml += '</ul>';
+                actsTree.innerHTML = treeHtml;
 
-                // Wyświetlenie tabeli z wszystkimi słowami kluczowymi
-                const keywordMapDiv = document.getElementById('keyword-map');
-                let keywordHtml = `<h3>Keyword Map:</h3>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Keyword</th>
-                                <th>Acts</th>
-                                <th>Action</th> <!-- Dodałem nową kolumnę -->
-                            </tr>
-                        </thead>
-                        <tbody>`;
-
-                // Pętla przez słowa kluczowe i akty
-                for (const [keyword, acts] of Object.entries(data.keyword_map)) {
-                    keywordHtml += `<tr>
-                        <td>${keyword}</td>
-                        <td>${acts.join('<br>')}</td>
-                        <td>
-                            ${acts.map(actTitle => {
-                        const act = data.acts.find(a => a.title === actTitle);
-                        return act && act.url ? `<a href="${act.url}" class="act-button" target="_blank">View Act</a>` : '';
-                    }).join('<br>')}
-                        </td>
-                    </tr>`;
-                }
-                keywordHtml += `</tbody></table>`;
-                keywordMapDiv.innerHTML = keywordHtml;
+                document.querySelectorAll('.toggle').forEach(el => {
+                    el.addEventListener('click', toggleTree);
+                });
 
                 // Ukrycie loadera po zakończeniu
-                hideLoader();
+                document.getElementById('loader').style.display = 'none';
             } else {
                 alert('Error fetching acts.');
-                hideLoader();
+                document.getElementById('loader').style.display = 'none';
             }
         }
     </script>
@@ -173,9 +168,6 @@
     {% if filename %}
     <h2>Uploaded PDF:</h2>
     <iframe src="{{ url_for('display_pdf', filename=filename) }}" width="100%" height="600px"></iframe>
-
-    <h2>Actions:</h2>
-    <button onclick="findWords('{{ filename }}')">Find Words</button>
     {% endif %}
 
     <h2>Fetch Acts:</h2>
@@ -190,8 +182,8 @@
     <input type="number" id="count" value="10">
     <button type="button" onclick="fetchActs()">Fetch Acts</button>
 
-    <div id="acts"></div>
-    <div id="keyword-map"></div>
+    <h2>Acts Tree:</h2>
+    <div id="acts-tree" class="tree"></div>
 
     <!-- Loader -->
     <div id="loader">

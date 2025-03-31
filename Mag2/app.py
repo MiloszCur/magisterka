@@ -52,7 +52,7 @@ def find_words():
     text = extract_text(filepath)
     return jsonify({'highlighted_phrases': extract_keywords(text)})
 
-@app.route('/fetch_acts', methods=['POST'])
+@app.route('/fetch_acts', methods=['POST', 'GET'])
 def fetch_acts():
     publisher_map = {
         "DziennikUstaw": "DU",
@@ -61,52 +61,65 @@ def fetch_acts():
     
     publisher = request.form.get('publisher')
     year = request.form.get('year')
-    count = int(request.form.get('count', 10))  # Domyślnie pobieramy 10 aktów, jeśli nie podano
+    count = int(request.form.get('count', 10))  # Default to fetching 10 acts
 
     if publisher not in publisher_map:
         return jsonify({'error': 'Invalid publisher'}), 400
     
-    # URL do pobrania listy aktów w danym roku
     api_url = f'http://api.sejm.gov.pl/eli/acts/{publisher_map[publisher]}/{year}'
     
     try:
         response = requests.get(api_url)
-        print(f"Fetching URL: {api_url}")  
-        print(f"Response Status Code: {response.status_code}")  
-
         if response.status_code != 200:
             return jsonify({'error': f'Could not fetch acts, status {response.status_code}', 'details': response.text}), 500
 
         data = response.json()
-        acts = data.get("items", [])[:count]  # Pobierz pierwsze `count` aktów
-
-        # Ekstrakcja słów kluczowych dla każdego aktu
+        acts = data.get("items", [])[:count]
+        
         keyword_map = {}
         for act in acts:
             title = act.get('title', '')
             content = act.get('content', '')
+            eli = act.get('ELI', '')  # Get ELI value
+            file_name = act.get('fileName', '')  # Get fileName value
             
-            # Wyciąganie słów kluczowych z treści lub tytułu
-            keywords = extract_keywords(content if content else title)
-            act['highlighted_phrases'] = keywords
+            # Check if 'fileName' is None or empty
+            if not file_name:
+                file_name = "None"
             
-            # Tworzymy URL do pełnej wersji aktu (przykład)
-            act_id = act.get('id')  # Załóżmy, że mamy identyfikator aktu
-            if act_id:
-                act['url'] = f'http://api.sejm.gov.pl/eli/acts/{publisher_map[publisher]}/{year}/{act_id}'
+            # Construct the full title with ELI
+            full_title = f"{title} - {eli}"
+            
+            # Construct the eli/fileName string
+            eli_file_name = f"{eli}/{file_name}" if eli and file_name else None
+            
+            # Fix: Ensure we only generate download_url if 'eli' exists
+            if eli:
+                download_url = f'https://api.sejm.gov.pl/eli/acts/{eli}/text.pdf'
             else:
-                act['url'] = None  # Jeśli nie ma ID, nie generujemy linku
-
-            # Mapa słów kluczowych do aktów
+                download_url = 'PDF not available'
+            
+            keywords = extract_keywords(content if content else title)
+            act_id = act.get('id')
+            act_url = "https://api.sejm.gov.pl/eli/acts/"+eli+"/text.pdf" if eli else None
+            
+            # Ensure the highlighted phrases contain the proper URL and keywords
+            act['highlighted_phrases'] = [f'{keyword} - {act_url}' for keyword in keywords]
+            act['download_url'] = download_url  # Updated download URL
+            act['title_with_eli'] = full_title  # Add the full title with ELI
+            act['eli_file_name'] = eli_file_name  # Add the ELI/fileName string
+            act['pdf_url'] = act_url  # Adding the PDF URL for the front-end
+            
             for keyword in keywords:
                 if keyword not in keyword_map:
                     keyword_map[keyword] = []
-                keyword_map[keyword].append(act['title'])
+                keyword_map[keyword].append(f'{full_title} - {act_url}')
 
         return jsonify({'acts': acts, 'keyword_map': keyword_map})
     except Exception as e:
         return jsonify({'error': 'Exception occurred', 'details': str(e)}), 500
-o
+
+
 @app.route('/find_words_api', methods=['POST'])
 def find_words_api():
     text = request.form.get('text')
