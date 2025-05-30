@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Upload and View PDF</title>
+    <style>
+        /* [ZAWARTOŚĆ STYLE JEST IDENTYCZNA JAK W TWOIM KODZIE] */
+        .tree {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+
+        .tree ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+
+        .tree li {
+            margin: 5px 0;
+            cursor: pointer;
+        }
+
+        .tree .toggle::before {
+            content: "▶";
+            display: inline-block;
+            margin-right: 5px;
+            font-size: 12px;
+        }
+
+        .tree .expanded::before {
+            content: "▼";
+        }
+
+        .act-button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+        }
+
+        .act-button:hover {
+            background-color: #2980b9;
+        }
+
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 1000;
+        }
+
+        .loader-spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .pdf-text {
+            white-space: pre-wrap;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            margin-top: 20px;
+        }
+
+        .article {
+            font-weight: bold;
+            margin-top: 15px;
+        }
+
+        .paragraph {
+            margin-left: 20px;
+        }
+
+        .section {
+            margin-top: 30px;
+        }
+
+        .highlight {
+            background-color: yellow;
+            font-weight: bold;
+        }
+
+        .nav-buttons {
+            margin-bottom: 10px;
+        }
+
+        .nav-buttons button {
+            margin-right: 10px;
+        }
+
+        .act-type {
+            font-style: italic;
+            color: gray;
+            margin-left: 5px;
+        }
+
+        #pdf-modal {
+            display: none;
+            position: fixed;
+            top: 5%;
+            left: 5%;
+            width: 90%;
+            height: 90%;
+            background: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            overflow: hidden;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #close-modal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+            background-color: #e74c3c;
+            border: none;
+            color: white;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        #modal-content {
+            overflow-y: auto;
+            height: 100%;
+            margin-top: 10px;
+            flex-grow: 1;
+        }
+
+        #keyword-input {
+            margin-bottom: 10px;
+            padding: 5px;
+            font-size: 16px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+    <script>
+        let currentKeywordIndex = -1;
+        let keywordMatches = [];
+        let currentKeyword = '';
+        let currentActTitle = '';
+
+        function toggleTree(event) {
+            const target = event.target;
+            if (target.classList.contains('toggle')) {
+                target.classList.toggle('expanded');
+                const subList = target.nextElementSibling;
+                if (subList) {
+                    subList.style.display = subList.style.display === 'none' ? 'block' : 'none';
+                }
+            }
+        }
+
+        async function fetchActs() {
+            const publisher = document.getElementById('publisher').value;
+            const year = document.getElementById('year').value;
+            const count = document.getElementById('count').value;
+
+            document.getElementById('loader').style.display = 'flex';
+
+            const formData = new FormData();
+            formData.append('publisher', publisher);
+            formData.append('year', year);
+            formData.append('count', count);
+
+            try {
+                const response = await fetch('/fetch_acts', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const actsTree = document.getElementById('acts-tree');
+
+                    const titleToType = {};
+                    data.acts.forEach(act => {
+                        titleToType[act.title] = act.type || 'Brak typu';
+                    });
+
+                    const hierarchy = {};
+
+                    data.acts.forEach(act => {
+                        const title = act.title;
+                        const type = titleToType[title];
+                        const releasedByList = data.released_by_map[title] || ['Nieznany organ'];
+                        const keywords = Object.entries(data.keyword_map)
+                            .filter(([_, titles]) => titles.includes(title))
+                            .map(([kw, _]) => kw);
+
+                        releasedByList.forEach(releasedBy => {
+                            if (!hierarchy[releasedBy]) hierarchy[releasedBy] = {};
+                            if (!hierarchy[releasedBy][type]) hierarchy[releasedBy][type] = {};
+                            keywords.forEach(keyword => {
+                                if (!hierarchy[releasedBy][type][keyword]) hierarchy[releasedBy][type][keyword] = [];
+                                hierarchy[releasedBy][type][keyword].push(title);
+                            });
+                        });
+                    });
+
+                    let treeHtml = '<ul>';
+
+                    Object.keys(hierarchy).sort().forEach(releasedBy => {
+                        treeHtml += `<li><span class="toggle">${releasedBy}</span><ul style="display: none;">`;
+
+                        Object.keys(hierarchy[releasedBy]).sort().forEach(type => {
+                            treeHtml += `<li><span class="toggle">${type}</span><ul style="display: none;">`;
+
+                            Object.keys(hierarchy[releasedBy][type]).sort().forEach(keyword => {
+                                treeHtml += `<li><span class="toggle">${keyword}</span><ul style="display: none;">`;
+
+                                hierarchy[releasedBy][type][keyword].sort().forEach(title => {
+                                    const downloadUrl = data.download_map[title] || "#";
+
+                                    treeHtml += `
+                                <li>
+                                    <span class="act-title">${title}</span>
+                                    <a href="#" class="act-button open-text-button" data-url="${downloadUrl}" data-title="${title}" data-keyword="${keyword}">Otwórz Plik</a>
+                                    <a href="#" class="act-button open-pdf-button" data-url="${downloadUrl}" target="_blank">Otwórz PDF</a>
+                                    <div class="act-content" id="content-${title}" style="display:none;"></div>
+                                </li>`;
+                                });
+
+                                treeHtml += '</ul></li>';
+                            });
+
+                            treeHtml += '</ul></li>';
+                        });
+
+                        treeHtml += '</ul></li>';
+                    });
+
+                    treeHtml += '</ul>';
+                    actsTree.innerHTML = treeHtml;
+
+                    document.querySelectorAll('.toggle').forEach(el => el.addEventListener('click', toggleTree));
+                    document.querySelectorAll('.open-text-button').forEach(button => {
+                        button.addEventListener('click', function (event) {
+                            event.preventDefault();
+                            const pdfUrl = this.getAttribute('data-url');
+                            currentActTitle = this.getAttribute('data-title');
+                            currentKeyword = this.getAttribute('data-keyword');
+
+                            const modal = document.getElementById('pdf-modal');
+                            const modalContent = document.getElementById('modal-content');
+                            modal.style.display = 'flex';
+                            modalContent.innerHTML = '';
+
+                            // Dodaj input do edycji słowa kluczowego nad treścią
+                            let inputHtml = `<input type="text" id="keyword-input" value="${currentKeyword}" placeholder="Wpisz słowo kluczowe..." />`;
+                            modalContent.insertAdjacentHTML('beforebegin', inputHtml);
+
+                            // Załaduj tekst PDF
+                            renderPDFText(pdfUrl, modalContent);
+
+                            // Obsługa inputa słowa kluczowego na żywo
+                            const keywordInput = document.getElementById('keyword-input');
+                            keywordInput.focus();
+                            keywordInput.select();
+
+                            keywordInput.oninput = () => {
+                                currentKeyword = keywordInput.value.trim();
+                                highlightKeyword(modalContent);
+                            };
+                        });
+                    });
+
+                    document.querySelectorAll('.open-pdf-button').forEach(button => {
+                        button.addEventListener('click', function (event) {
+                            event.preventDefault();
+                            const pdfUrl = this.getAttribute('data-url');
+                            window.open(pdfUrl, '_blank');
+                        });
+                    });
+
+                    document.getElementById('loader').style.display = 'none';
+                } else {
+                    alert('Error fetching acts: ' + response.statusText);
+                    document.getElementById('loader').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching acts:', error);
+                alert('There was an error fetching the acts.');
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
+
+        function renderPDFText(pdfUrl, contentDiv) {
+            contentDiv.innerHTML = '';
+            document.getElementById('loader').style.display = 'flex';
+
+            pdfjsLib.getDocument(pdfUrl).promise.then(pdfDoc => {
+                let totalText = '';
+                keywordMatches = [];
+                currentKeywordIndex = -1;
+
+                function extractText(pageNum) {
+                    pdfDoc.getPage(pageNum).then(page => {
+                        page.getTextContent().then(textContent => {
+                            textContent.items.forEach(item => {
+                                const text = item.str;
+                                const fontSize = item.transform[0];
+
+                                if (fontSize > 14) totalText += `<h2 class="section">${text}</h2>`;
+                                else if (fontSize > 12) totalText += `<div class="article">${text}</div>`;
+                                else totalText += `<p class="paragraph">${text}</p>`;
+                            });
+
+                            if (pageNum < pdfDoc.numPages) {
+                                extractText(pageNum + 1);
+                            } else {
+                                contentDiv.innerHTML = totalText;
+                                highlightKeyword(contentDiv);
+                                document.getElementById('loader').style.display = 'none';
+                            }
+                        });
+                    }).catch(err => {
+                        console.error("Error getting page textContent:", err);
+                        document.getElementById('loader').style.display = 'none';
+                    });
+                }
+
+                extractText(1);
+            }).catch(error => {
+                console.error("Error rendering PDF:", error);
+                alert("Failed to load PDF content.");
+                document.getElementById('loader').style.display = 'none';
+            });
+        }
+
+        function highlightKeyword(contentDiv) {
+            keywordMatches = [];
+            if (!currentKeyword) {
+                // Jeśli brak słowa kluczowego, usuń podświetlenia
+                contentDiv.querySelectorAll('.paragraph, .article, .section').forEach(el => {
+                    el.innerHTML = el.textContent;
+                });
+                return;
+            }
+
+            const regex = new RegExp(`\\b${escapeRegExp(currentKeyword)}\\b`, 'gi');
+
+            contentDiv.querySelectorAll('.paragraph, .article, .section').forEach(element => {
+                const originalText = element.textContent;
+                if (regex.test(originalText)) {
+                    // Zapisz oryginalny HTML (bez podświetleń)
+                    keywordMatches.push({
+                        element: element,
+                        originalHTML: element.innerHTML
+                    });
+                }
+            });
+
+            if (keywordMatches.length > 0) {
+                currentKeywordIndex = -1;
+                navigateKeyword(contentDiv, true);
+            } else {
+                // Jeśli nie znaleziono, usuń podświetlenia
+                contentDiv.querySelectorAll('.paragraph, .article, .section').forEach(el => {
+                    el.innerHTML = el.textContent;
+                });
+            }
+        }
+
+        function navigateKeyword(contentDiv, isNext) {
+            if (keywordMatches.length === 0) return;
+
+            // Resetuj wszystkie podświetlenia
+            keywordMatches.forEach(match => {
+                match.element.innerHTML = match.originalHTML;
+            });
+
+            currentKeywordIndex = isNext
+                ? (currentKeywordIndex + 1) % keywordMatches.length
+                : (currentKeywordIndex - 1 + keywordMatches.length) % keywordMatches.length;
+
+            const target = keywordMatches[currentKeywordIndex];
+            const regex = new RegExp(`\\b${escapeRegExp(currentKeyword)}\\b`, 'gi');
+
+            target.element.innerHTML = target.originalHTML.replace(regex, match => `<span class="highlight">${match}</span>`);
+            target.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('close-modal').addEventListener('click', () => {
+                document.getElementById('pdf-modal').style.display = 'none';
+                document.getElementById('modal-content').innerHTML = '';
+                currentKeywordIndex = -1;
+                keywordMatches = [];
+
+                // Usuń input słowa kluczowego, jeśli jest
+                const oldInput = document.getElementById('keyword-input');
+                if (oldInput) oldInput.remove();
+            });
+
+            document.getElementById('prev-keyword').addEventListener('click', () => {
+                const contentDiv = document.getElementById('modal-content');
+                navigateKeyword(contentDiv, false);
+            });
+
+            document.getElementById('next-keyword').addEventListener('click', () => {
+                const contentDiv = document.getElementById('modal-content');
+                navigateKeyword(contentDiv, true);
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <h1>Upload and View PDF</h1>
+
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <label for="file">Select a PDF file:</label>
+        <input type="file" id="file" name="file" accept=".pdf" required />
+        <button type="submit">Upload</button>
+    </form>
+
+    <h2>Fetch Acts:</h2>
+    <label for="publisher">Publisher:</label>
+    <select id="publisher">
+        <option value="DziennikUstaw">Dziennik Ustaw</option>
+        <option value="MonitorPolski">Monitor Polski</option>
+    </select>
+    <label for="year">Year:</label>
+    <input type="number" id="year" value="2023" />
+    <label for="count">Count:</label>
+    <input type="number" id="count" value="10" />
+    <button type="button" onclick="fetchActs()">Fetch</button>
+
+    <div id="loader">
+        <div class="loader-spinner"></div>
+    </div>
+
+    <div class="tree" id="acts-tree"></div>
+
+    <div id="pdf-modal">
+        <button id="close-modal">Zamknij</button>
+        <div class="nav-buttons">
+            <button id="prev-keyword">Previous</button>
+            <button id="next-keyword">Next</button>
+        </div>
+        <div id="modal-content"></div>
+    </div>
+</body>
+
+</html>
