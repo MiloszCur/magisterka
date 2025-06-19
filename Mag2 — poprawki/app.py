@@ -23,6 +23,10 @@ CUSTOM_STOP_WORDS = {
 # inicjalizacja Morfeusz2 raz globalnie, by nie ładować wielokrotnie
 morfeusz = morfeusz2.Morfeusz()
 
+# Globalne załadowanie modelu SpaCy tylko raz
+nlp = spacy.load("pl_core_news_sm")
+
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -144,8 +148,9 @@ def fetch_acts():
         return jsonify({'error': 'Exception occurred', 'details': str(e)}), 500
 
 def extract_keywords(text):
-    nlp = spacy.load("pl_core_news_sm")
-    doc = nlp(text)
+  #  nlp = spacy.load("pl_core_news_sm")
+   # doc = nlp(text)
+    doc = nlp(text)  # ← użycie globalnego `nlp`
 
     tokens = [
         token.lemma_.lower() for token in doc
