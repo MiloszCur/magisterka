@@ -34,6 +34,11 @@ def allowed_file(filename):
 def home():
     return render_template('index.html', filename=request.args.get('filename'))
 
+@app.route('/main')
+def main():
+    # Strona główna z informacją o aplikacji
+    return render_template('main.html')
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:

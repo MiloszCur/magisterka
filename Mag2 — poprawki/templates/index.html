@@ -5,6 +5,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Upload and View PDF</title>
+    <!-- Bootstrap CSS -->
+    <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    />
+
     <style>
         /* [ZAWARTOŚĆ STYLE JEST IDENTYCZNA JAK W TWOIM KODZIE] */
         .tree {
@@ -451,6 +457,21 @@
 </head>
 
 <body>
+    <!-- NAVBAR START -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar" aria-controls="navbar"
+            aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbar">
+            <div class="navbar-nav">
+                <a class="nav-item nav-link" href="{{ url_for('main') }}">Main info</a>
+                <a class="nav-item nav-link" href="{{ url_for('home') }}">Fetch Acts</a>
+            </div>
+        </div>
+    </nav>
+    
+  <!-- NAVBAR END -->
     <h1>Upload and View PDF</h1>
 
     <form action="/upload" method="POST" enctype="multipart/form-data">
@@ -485,6 +506,9 @@
         </div>
         <div id="modal-content"></div>
     </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
 </body>
 
 </html>
