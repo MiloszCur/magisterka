@@ -189,6 +189,13 @@
             const year = document.getElementById('year').value;
             const count = document.getElementById('count').value;
 
+            const currentYear = new Date().getFullYear(); //dodanie warunku, ze nie mozna wybrać roku do pobierania aktow z przyszlosci
+
+            if (year > currentYear) {
+                alert(`Nie ma jeszcze aktów dostępnych dla roku ${year}. Spróbuj podać rok ${currentYear} lub wcześniejszy.`);
+                return;
+            }
+
             document.getElementById('loader').style.display = 'flex';
 
             const formData = new FormData();
