@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akty Prawne</title>
+</head>
+<body>
+    <h1>Akty Prawne</h1>
+    
+    <ul>
+        {% for act in acts %}
+            <li>
+                {{ act.title }}
+                {% if act.url %}
+                    <a href="{{ act.url }}" target="_blank">Zobacz Akt</a>
+                {% else %}
+                    <span>Link niedostępny</span>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
