@@ -5,11 +5,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Upload and View PDF</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" rel="stylesheet" />
 
     <style>
-        /* [ZAWARTOŚĆ STYLE JEST IDENTYCZNA JAK W TWOIM KODZIE] */
+        /* Styl taki jak wcześniej, niezmieniony */
         .tree {
             font-family: Arial, sans-serif;
             font-size: 14px;
@@ -27,9 +26,9 @@
 
         .tree .toggle::before {
             content: "▶";
-            display: inline-block;
             margin-right: 5px;
             font-size: 12px;
+            display: inline-block;
         }
 
         .tree .expanded::before {
@@ -181,9 +180,7 @@
             if (target.classList.contains('toggle')) {
                 target.classList.toggle('expanded');
                 const subList = target.nextElementSibling;
-                if (subList) {
-                    subList.style.display = subList.style.display === 'none' ? 'block' : 'none';
-                }
+                if (subList) subList.style.display = subList.style.display === 'none' ? 'block' : 'none';
             }
         }
 
@@ -191,139 +188,118 @@
             const publisher = document.getElementById('publisher').value;
             const year = document.getElementById('year').value;
             const count = document.getElementById('count').value;
-
-            const currentYear = new Date().getFullYear(); //dodanie warunku, ze nie mozna wybrać roku do pobierania aktow z przyszlosci
+            const currentYear = new Date().getFullYear();
 
             if (year > currentYear) {
-                alert(`There are no acts available for the year ${year} yet. Try specifying a year of ${currentYear} or earlier.`);
+                alert(`Nie ma jeszcze aktów dostępnych dla roku ${year}.`);
                 return;
             }
 
             document.getElementById('loader').style.display = 'flex';
-
             const formData = new FormData();
             formData.append('publisher', publisher);
             formData.append('year', year);
             formData.append('count', count);
 
             try {
-                const response = await fetch('/fetch_acts', {
-                    method: 'POST',
-                    body: formData
+                const response = await fetch('/fetch_acts', { method: 'POST', body: formData });
+
+                if (!response.ok) throw new Error('Fetch failed');
+
+                const data = await response.json();
+                const actsTree = document.getElementById('acts-tree');
+                const hierarchy = {};
+
+                const titleToType = {};
+                data.acts.forEach(act => titleToType[act.title] = act.type || 'Brak typu');
+
+                data.acts.forEach(act => {
+                    const title = act.title;
+                    const type = titleToType[title];
+                    const releasedByList = data.released_by_map[title] || ['Nieznany organ'];
+                    const keywords = Object.entries(data.keyword_map)
+                        .filter(([_, titles]) => titles.includes(title))
+                        .map(([kw, _]) => kw);
+
+                    releasedByList.forEach(releasedBy => {
+                        if (!hierarchy[releasedBy]) hierarchy[releasedBy] = {};
+                        if (!hierarchy[releasedBy][type]) hierarchy[releasedBy][type] = {};
+                        keywords.forEach(keyword => {
+                            if (!hierarchy[releasedBy][type][keyword]) hierarchy[releasedBy][type][keyword] = [];
+                            hierarchy[releasedBy][type][keyword].push(title);
+                        });
+                    });
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const actsTree = document.getElementById('acts-tree');
-
-                    const titleToType = {};
-                    data.acts.forEach(act => {
-                        titleToType[act.title] = act.type || 'Brak typu';
-                    });
-
-                    const hierarchy = {};
-
-                    data.acts.forEach(act => {
-                        const title = act.title;
-                        const type = titleToType[title];
-                        const releasedByList = data.released_by_map[title] || ['Unknown authority'];
-                        const keywords = Object.entries(data.keyword_map)
-                            .filter(([_, titles]) => titles.includes(title))
-                            .map(([kw, _]) => kw);
-
-                        releasedByList.forEach(releasedBy => {
-                            if (!hierarchy[releasedBy]) hierarchy[releasedBy] = {};
-                            if (!hierarchy[releasedBy][type]) hierarchy[releasedBy][type] = {};
-                            keywords.forEach(keyword => {
-                                if (!hierarchy[releasedBy][type][keyword]) hierarchy[releasedBy][type][keyword] = [];
-                                hierarchy[releasedBy][type][keyword].push(title);
+                let treeHtml = '<ul>';
+                Object.keys(hierarchy).sort().forEach(releasedBy => {
+                    treeHtml += `<li><span class="toggle">${releasedBy}</span><ul style="display: none;">`;
+                    Object.keys(hierarchy[releasedBy]).sort().forEach(type => {
+                        treeHtml += `<li><span class="toggle">${type}</span><ul style="display: none;">`;
+                        Object.keys(hierarchy[releasedBy][type]).sort().forEach(keyword => {
+                            treeHtml += `<li><span class="toggle">${keyword}</span><ul style="display: none;">`;
+                            hierarchy[releasedBy][type][keyword].sort().forEach(title => {
+                                const downloadUrl = data.download_map[title] || "#";
+                                treeHtml += `
+                  <li>
+                    <span class="act-title">${title}</span>
+                    <a href="#" class="act-button open-text-button" data-url="${downloadUrl}" data-title="${title}" data-keyword="${keyword}">Otwórz Plik</a>
+                    <a href="#" class="act-button open-pdf-button" data-url="${downloadUrl}" target="_blank">Otwórz PDF</a>
+                    <div class="act-content" id="content-${title}" style="display:none;"></div>
+                  </li>`;
                             });
-                        });
-                    });
-
-                    let treeHtml = '<ul>';
-
-                    Object.keys(hierarchy).sort().forEach(releasedBy => {
-                        treeHtml += `<li><span class="toggle">${releasedBy}</span><ul style="display: none;">`;
-
-                        Object.keys(hierarchy[releasedBy]).sort().forEach(type => {
-                            treeHtml += `<li><span class="toggle">${type}</span><ul style="display: none;">`;
-
-                            Object.keys(hierarchy[releasedBy][type]).sort().forEach(keyword => {
-                                treeHtml += `<li><span class="toggle">${keyword}</span><ul style="display: none;">`;
-
-                                hierarchy[releasedBy][type][keyword].sort().forEach(title => {
-                                    const downloadUrl = data.download_map[title] || "#";
-
-                                    treeHtml += `
-                                <li>
-                                    <span class="act-title">${title}</span>
-                                    <a href="#" class="act-button open-text-button" data-url="${downloadUrl}" data-title="${title}" data-keyword="${keyword}">Open File</a>
-                                    <a href="#" class="act-button open-pdf-button" data-url="${downloadUrl}" target="_blank">Open PDF</a>
-                                    <div class="act-content" id="content-${title}" style="display:none;"></div>
-                                </li>`;
-                                });
-
-                                treeHtml += '</ul></li>';
-                            });
-
                             treeHtml += '</ul></li>';
                         });
-
                         treeHtml += '</ul></li>';
                     });
+                    treeHtml += '</ul></li>';
+                });
+                treeHtml += '</ul>';
+                actsTree.innerHTML = treeHtml;
 
-                    treeHtml += '</ul>';
-                    actsTree.innerHTML = treeHtml;
+                document.querySelectorAll('.toggle').forEach(el => el.addEventListener('click', toggleTree));
 
-                    document.querySelectorAll('.toggle').forEach(el => el.addEventListener('click', toggleTree));
-                    document.querySelectorAll('.open-text-button').forEach(button => {
-                        button.addEventListener('click', function (event) {
-                            event.preventDefault();
-                            const pdfUrl = this.getAttribute('data-url');
-                            currentActTitle = this.getAttribute('data-title');
-                            currentKeyword = this.getAttribute('data-keyword');
+                document.querySelectorAll('.open-text-button').forEach(button => {
+                    button.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        const pdfUrl = this.dataset.url;
+                        currentActTitle = this.dataset.title;
+                        currentKeyword = this.dataset.keyword;
 
-                            const modal = document.getElementById('pdf-modal');
-                            const modalContent = document.getElementById('modal-content');
-                            modal.style.display = 'flex';
-                            modalContent.innerHTML = '';
+                        const modal = document.getElementById('pdf-modal');
+                        const modalContent = document.getElementById('modal-content');
+                        modal.style.display = 'flex';
+                        modalContent.innerHTML = '';
 
-                            // Dodaj input do edycji słowa kluczowego nad treścią
-                            let inputHtml = `<input type="text" id="keyword-input" value="${currentKeyword}" placeholder="Enter keyword..." />`;
-                            modalContent.insertAdjacentHTML('beforebegin', inputHtml);
+                        // 🛠️ Fix: Remove existing input if present before adding a new one
+                        const oldInput = document.getElementById('keyword-input');
+                        if (oldInput) oldInput.remove();
 
-                            // Załaduj tekst PDF
-                            renderPDFText(pdfUrl, modalContent);
+                        const inputHtml = `<input type="text" id="keyword-input" value="${currentKeyword}" placeholder="Wpisz słowo kluczowe..." />`;
+                        modal.insertAdjacentHTML('afterbegin', inputHtml);
 
-                            // Obsługa inputa słowa kluczowego na żywo
-                            const keywordInput = document.getElementById('keyword-input');
-                            keywordInput.focus();
-                            keywordInput.select();
+                        renderPDFText(pdfUrl, modalContent);
 
-                            keywordInput.oninput = () => {
-                                currentKeyword = keywordInput.value.trim();
-                                highlightKeyword(modalContent);
-                            };
-                        });
+                        const keywordInput = document.getElementById('keyword-input');
+                        keywordInput.focus();
+                        keywordInput.select();
+                        keywordInput.oninput = () => {
+                            currentKeyword = keywordInput.value.trim();
+                            highlightKeyword(modalContent);
+                        };
                     });
+                });
 
-                    document.querySelectorAll('.open-pdf-button').forEach(button => {
-                        button.addEventListener('click', function (event) {
-                            event.preventDefault();
-                            const pdfUrl = this.getAttribute('data-url');
-                            window.open(pdfUrl, '_blank');
-                        });
+                document.querySelectorAll('.open-pdf-button').forEach(button => {
+                    button.addEventListener('click', e => {
+                        e.preventDefault();
+                        window.open(button.dataset.url, '_blank');
                     });
+                });
 
-                    document.getElementById('loader').style.display = 'none';
-                } else {
-                    alert('Error fetching acts: ' + response.statusText);
-                    document.getElementById('loader').style.display = 'none';
-                }
+                document.getElementById('loader').style.display = 'none';
             } catch (error) {
-                console.error('Error fetching acts:', error);
-                alert('There was an error fetching the acts.');
+                alert('Wystąpił błąd przy pobieraniu aktów.');
                 document.getElementById('loader').style.display = 'none';
             }
         }
@@ -331,7 +307,6 @@
         function renderPDFText(pdfUrl, contentDiv) {
             contentDiv.innerHTML = '';
             document.getElementById('loader').style.display = 'flex';
-
             pdfjsLib.getDocument(pdfUrl).promise.then(pdfDoc => {
                 let totalText = '';
                 keywordMatches = [];
@@ -343,30 +318,24 @@
                             textContent.items.forEach(item => {
                                 const text = item.str;
                                 const fontSize = item.transform[0];
-
                                 if (fontSize > 14) totalText += `<h2 class="section">${text}</h2>`;
                                 else if (fontSize > 12) totalText += `<div class="article">${text}</div>`;
                                 else totalText += `<p class="paragraph">${text}</p>`;
                             });
 
-                            if (pageNum < pdfDoc.numPages) {
-                                extractText(pageNum + 1);
-                            } else {
+                            if (pageNum < pdfDoc.numPages) extractText(pageNum + 1);
+                            else {
                                 contentDiv.innerHTML = totalText;
                                 highlightKeyword(contentDiv);
                                 document.getElementById('loader').style.display = 'none';
                             }
                         });
-                    }).catch(err => {
-                        console.error("Error getting page textContent:", err);
-                        document.getElementById('loader').style.display = 'none';
                     });
                 }
 
                 extractText(1);
             }).catch(error => {
-                console.error("Error rendering PDF:", error);
-                alert("Failed to load PDF content.");
+                alert("Błąd ładowania PDF.");
                 document.getElementById('loader').style.display = 'none';
             });
         }
@@ -374,23 +343,16 @@
         function highlightKeyword(contentDiv) {
             keywordMatches = [];
             if (!currentKeyword) {
-                // Jeśli brak słowa kluczowego, usuń podświetlenia
-                contentDiv.querySelectorAll('.paragraph, .article, .section').forEach(el => {
-                    el.innerHTML = el.textContent;
-                });
+                contentDiv.querySelectorAll('.paragraph, .article, .section').forEach(el => el.innerHTML = el.textContent);
                 return;
             }
 
             const regex = new RegExp(`\\b${escapeRegExp(currentKeyword)}\\b`, 'gi');
 
-            contentDiv.querySelectorAll('.paragraph, .article, .section').forEach(element => {
-                const originalText = element.textContent;
+            contentDiv.querySelectorAll('.paragraph, .article, .section').forEach(el => {
+                const originalText = el.textContent;
                 if (regex.test(originalText)) {
-                    // Zapisz oryginalny HTML (bez podświetleń)
-                    keywordMatches.push({
-                        element: element,
-                        originalHTML: element.innerHTML
-                    });
+                    keywordMatches.push({ element: el, originalHTML: el.innerHTML });
                 }
             });
 
@@ -398,20 +360,13 @@
                 currentKeywordIndex = -1;
                 navigateKeyword(contentDiv, true);
             } else {
-                // Jeśli nie znaleziono, usuń podświetlenia
-                contentDiv.querySelectorAll('.paragraph, .article, .section').forEach(el => {
-                    el.innerHTML = el.textContent;
-                });
+                contentDiv.querySelectorAll('.paragraph, .article, .section').forEach(el => el.innerHTML = el.textContent);
             }
         }
 
         function navigateKeyword(contentDiv, isNext) {
             if (keywordMatches.length === 0) return;
-
-            // Resetuj wszystkie podświetlenia
-            keywordMatches.forEach(match => {
-                match.element.innerHTML = match.originalHTML;
-            });
+            keywordMatches.forEach(match => match.element.innerHTML = match.originalHTML);
 
             currentKeywordIndex = isNext
                 ? (currentKeywordIndex + 1) % keywordMatches.length
@@ -420,12 +375,12 @@
             const target = keywordMatches[currentKeywordIndex];
             const regex = new RegExp(`\\b${escapeRegExp(currentKeyword)}\\b`, 'gi');
 
-            target.element.innerHTML = target.originalHTML.replace(regex, match => `<span class="highlight">${match}</span>`);
+            target.element.innerHTML = target.originalHTML.replace(regex, m => `<span class="highlight">${m}</span>`);
             target.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        function escapeRegExp(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -434,30 +389,24 @@
                 document.getElementById('modal-content').innerHTML = '';
                 currentKeywordIndex = -1;
                 keywordMatches = [];
-
-                // Usuń input słowa kluczowego, jeśli jest
                 const oldInput = document.getElementById('keyword-input');
                 if (oldInput) oldInput.remove();
             });
 
             document.getElementById('prev-keyword').addEventListener('click', () => {
-                const contentDiv = document.getElementById('modal-content');
-                navigateKeyword(contentDiv, false);
+                navigateKeyword(document.getElementById('modal-content'), false);
             });
 
             document.getElementById('next-keyword').addEventListener('click', () => {
-                const contentDiv = document.getElementById('modal-content');
-                navigateKeyword(contentDiv, true);
+                navigateKeyword(document.getElementById('modal-content'), true);
             });
         });
     </script>
 </head>
 
 <body>
-    <!-- NAVBAR START -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar" aria-controls="navbar"
-            aria-expanded="false" aria-label="Toggle navigation">
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbar">
@@ -468,9 +417,7 @@
         </div>
     </nav>
 
-    <!-- NAVBAR END -->
     <h1>Upload and View PDF</h1>
-
     <form action="/upload" method="POST" enctype="multipart/form-data">
         <label for="file">Select a PDF file:</label>
         <input type="file" id="file" name="file" accept=".pdf" required />
@@ -492,20 +439,19 @@
     <div id="loader">
         <div class="loader-spinner"></div>
     </div>
-
     <div class="tree" id="acts-tree"></div>
 
     <div id="pdf-modal">
-        <button id="close-modal">Close</button>
+        <button id="close-modal">Zamknij</button>
         <div class="nav-buttons">
             <button id="prev-keyword">Previous</button>
             <button id="next-keyword">Next</button>
         </div>
         <div id="modal-content"></div>
     </div>
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-
 </body>
 
 </html>

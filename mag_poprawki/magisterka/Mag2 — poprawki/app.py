@@ -27,6 +27,87 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def extract_keywords(text):
+    kw_extractor = yake.KeywordExtractor(
+        lan="pl",
+        n=2,
+        dedupLim=0.9,
+        top=20,
+        features=None
+    )
+
+    raw_keywords = kw_extractor.extract_keywords(text)
+    filtered_keywords = []
+
+    text_lower = text.lower()
+    seen_lemmas = set()
+
+    for phrase, score in raw_keywords:
+        phrase_clean = phrase.strip().lower()
+
+        if len(phrase_clean) < 3 or len(phrase_clean.split()) > 4:
+            continue
+
+        if not re.search(r'[a-zA-Ząćęłńóśżź]', phrase_clean):
+            continue
+
+        if re.fullmatch(r'[\d\s\W]+', phrase_clean):
+            continue
+
+        if text_lower.count(phrase_clean) > 10:
+            continue
+
+        analyses = morfeusz.analyse(phrase_clean)
+        lemma = analyses[0][2][1].lower() if analyses else phrase_clean
+
+        if lemma in CUSTOM_STOP_WORDS or phrase_clean in CUSTOM_STOP_WORDS:
+            continue
+
+        if lemma in seen_lemmas:
+            continue
+
+        seen_lemmas.add(lemma)
+        filtered_keywords.append((phrase_clean, score))
+
+        if len(filtered_keywords) >= 3:
+            break
+
+    return [phrase for phrase, _ in filtered_keywords]
+
+
+def process_local_pdf(filepath, filename):
+    """
+    Funkcja tworzy strukturę danych analogiczną do fetch_acts, ale dla lokalnego pliku PDF.
+    """
+    text = extract_text(filepath)
+    title = filename
+    eli = filename.replace('.pdf', '')
+    download_url = url_for('display_pdf', filename=filename)
+
+    keywords = extract_keywords(text)
+
+    keyword_map = {}
+    for keyword in keywords:
+        keyword_map.setdefault(keyword, []).append(title)
+
+    acts = [{
+        'title': title,
+        'ELI': eli,
+        'download_url': download_url,
+        'type': 'Nieznany'  # Możesz rozbudować, jeśli chcesz wyciągać typ z PDF
+    }]
+
+    download_map = {title: download_url}
+    released_by_map = {title: ["Nieznany wydawca"]}  # zmienione na dynamiczne dla lokalnego pdf
+
+    return {
+        'acts': acts,
+        'keyword_map': keyword_map,
+        'download_map': download_map,
+        'released_by_map': released_by_map
+    }
+
+
 @app.route('/')
 def home():
     return render_template('index.html', filename=request.args.get('filename'))
@@ -40,17 +121,24 @@ def main():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
-        return 'No file part'
+        return jsonify({'error': 'No file part'}), 400
     file = request.files['file']
     if file.filename == '':
-        return 'No selected file'
+        return jsonify({'error': 'No selected file'}), 400
     if file and allowed_file(file.filename):
         filename = file.filename
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
-        # Po uploadzie przekieruj z parametrem filename
-        return redirect(url_for('home', filename=filename))
-    return 'Invalid file format'
+
+        try:
+            # Przetwarzamy lokalny plik PDF i zwracamy dane w formacie analogicznym do fetch_acts
+            result = process_local_pdf(filepath, filename)
+            return jsonify(result)
+
+        except Exception as e:
+            return jsonify({'error': f'Błąd przetwarzania pliku: {str(e)}'}), 500
+
+    return jsonify({'error': 'Invalid file format'}), 400
 
 
 @app.route('/uploads/<filename>')
@@ -67,7 +155,6 @@ def extract_text_route():
     if not pdf_url:
         return 'Missing pdf_url', 400
 
-    # Sprawdzenie czy pdf_url jest bezpieczny i pochodzi z /uploads/
     if not pdf_url.startswith('/uploads/'):
         return 'Invalid pdf_url', 400
     filename = pdf_url[len('/uploads/'):]
@@ -138,6 +225,7 @@ def fetch_acts():
             eli = act.get('ELI', '')
             pos = act.get('pos', '')
             act_type = 'Nieznany'
+            released_by = ["Nieznany wydawca"]
 
             if eli and pos:
                 details_url = f"https://api.sejm.gov.pl/eli/acts/{publisher_code}/{year}/{pos}"
@@ -145,6 +233,8 @@ def fetch_acts():
                 if details_resp.status_code == 200:
                     details = details_resp.json()
                     act_type = details.get("type", "Nieznany")
+                    if "releasedBy" in details and details["releasedBy"]:
+                        released_by = details["releasedBy"]
 
             download_url = f"https://api.sejm.gov.pl/eli/acts/{eli}/text.pdf" if eli else "PDF not available"
             keywords = extract_keywords(title)
@@ -158,7 +248,7 @@ def fetch_acts():
 
             acts.append(act_entry)
             download_map[title] = download_url
-            released_by_map[title] = ["MIN. FINANSÓW"]
+            released_by_map[title] = released_by
 
             for keyword in keywords:
                 keyword_map.setdefault(keyword, []).append(title)
@@ -172,55 +262,6 @@ def fetch_acts():
 
     except Exception as e:
         return jsonify({'error': 'Exception occurred', 'details': str(e)}), 500
-
-
-# ULEPSZONA funkcja ekstrakcji słów kluczowych //zmiana z gensim na yake
-def extract_keywords(text):
-    kw_extractor = yake.KeywordExtractor(
-        lan="pl",
-        n=2,
-        dedupLim=0.9,
-        top=20,
-        features=None
-    )
-
-    raw_keywords = kw_extractor.extract_keywords(text)
-    filtered_keywords = []
-
-    text_lower = text.lower()
-    seen_lemmas = set()
-
-    for phrase, score in raw_keywords:
-        phrase_clean = phrase.strip().lower()
-
-        if len(phrase_clean) < 3 or len(phrase_clean.split()) > 4:
-            continue
-
-        if not re.search(r'[a-zA-Ząćęłńóśżź]', phrase_clean):
-            continue
-
-        if re.fullmatch(r'[\d\s\W]+', phrase_clean):
-            continue
-
-        if text_lower.count(phrase_clean) > 10:
-            continue
-
-        analyses = morfeusz.analyse(phrase_clean)
-        lemma = analyses[0][2][1].lower() if analyses else phrase_clean
-
-        if lemma in CUSTOM_STOP_WORDS or phrase_clean in CUSTOM_STOP_WORDS:
-            continue
-
-        if lemma in seen_lemmas:
-            continue
-
-        seen_lemmas.add(lemma)
-        filtered_keywords.append((phrase_clean, score))
-
-        if len(filtered_keywords) >= 2:
-            break
-
-    return [phrase for phrase, _ in filtered_keywords]
 
 
 @app.route('/inflect', methods=['POST'])
