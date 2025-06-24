@@ -174,7 +174,7 @@ def fetch_acts():
         return jsonify({'error': 'Exception occurred', 'details': str(e)}), 500
 
 
-# ✅ ULEPSZONA funkcja ekstrakcji słów kluczowych
+# ULEPSZONA funkcja ekstrakcji słów kluczowych //zmiana z gensim na yake
 def extract_keywords(text):
     kw_extractor = yake.KeywordExtractor(
         lan="pl",

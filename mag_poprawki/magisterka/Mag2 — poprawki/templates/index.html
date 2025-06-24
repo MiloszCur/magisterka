@@ -195,7 +195,7 @@
             const currentYear = new Date().getFullYear(); //dodanie warunku, ze nie mozna wybrać roku do pobierania aktow z przyszlosci
 
             if (year > currentYear) {
-                alert(`Nie ma jeszcze aktów dostępnych dla roku ${year}. Spróbuj podać rok ${currentYear} lub wcześniejszy.`);
+                alert(`There are no acts available for the year ${year} yet. Try specifying a year of ${currentYear} or earlier.`);
                 return;
             }
 
@@ -226,7 +226,7 @@
                     data.acts.forEach(act => {
                         const title = act.title;
                         const type = titleToType[title];
-                        const releasedByList = data.released_by_map[title] || ['Nieznany organ'];
+                        const releasedByList = data.released_by_map[title] || ['Unknown authority'];
                         const keywords = Object.entries(data.keyword_map)
                             .filter(([_, titles]) => titles.includes(title))
                             .map(([kw, _]) => kw);
@@ -258,8 +258,8 @@
                                     treeHtml += `
                                 <li>
                                     <span class="act-title">${title}</span>
-                                    <a href="#" class="act-button open-text-button" data-url="${downloadUrl}" data-title="${title}" data-keyword="${keyword}">Otwórz Plik</a>
-                                    <a href="#" class="act-button open-pdf-button" data-url="${downloadUrl}" target="_blank">Otwórz PDF</a>
+                                    <a href="#" class="act-button open-text-button" data-url="${downloadUrl}" data-title="${title}" data-keyword="${keyword}">Open File</a>
+                                    <a href="#" class="act-button open-pdf-button" data-url="${downloadUrl}" target="_blank">Open PDF</a>
                                     <div class="act-content" id="content-${title}" style="display:none;"></div>
                                 </li>`;
                                 });
@@ -290,7 +290,7 @@
                             modalContent.innerHTML = '';
 
                             // Dodaj input do edycji słowa kluczowego nad treścią
-                            let inputHtml = `<input type="text" id="keyword-input" value="${currentKeyword}" placeholder="Wpisz słowo kluczowe..." />`;
+                            let inputHtml = `<input type="text" id="keyword-input" value="${currentKeyword}" placeholder="Enter keyword..." />`;
                             modalContent.insertAdjacentHTML('beforebegin', inputHtml);
 
                             // Załaduj tekst PDF
@@ -496,7 +496,7 @@
     <div class="tree" id="acts-tree"></div>
 
     <div id="pdf-modal">
-        <button id="close-modal">Zamknij</button>
+        <button id="close-modal">Close</button>
         <div class="nav-buttons">
             <button id="prev-keyword">Previous</button>
             <button id="next-keyword">Next</button>

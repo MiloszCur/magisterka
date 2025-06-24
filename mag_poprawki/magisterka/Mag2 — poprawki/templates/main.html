@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8" />
-    <title>Strona główna</title>
+    <title>Main page</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
@@ -21,9 +21,16 @@
         </div>
     </nav>
 
-    <h1>Witamy w aplikacji!</h1>
-    <p>To jest strona główna z informacjami o aplikacji.</p>
+    <h1>Hi</h1>
+    <p>This is main page</p>
+    <p>Goal: Extracting keywords from legal acts in Polish using available algorithms or machine learning models. Testing existing solutions and making a justified choice of the best ones. Creating a hierarchy of keywords extracted from the text along with those available directly from the Journal of Laws API. The hierarchy should enable searching for keywords in depth and breadth. Keywords should direct to texts and then to specific fragments that contain them.</p>
+    <p>Tasks to be performed:
 
+        analysis of existing solutions for extracting keywords from texts in Polish
+        justified selection of solutions to be used in the project
+        implementation of a tool for automatic extraction of keywords from legal acts
+        creation of a hierarchy of keywords downloaded from the Journal of Laws API and extracted from texts
+        implementation of a web application that will enable displaying obtained keywords, listing legal acts containing indicated words and displaying fragments of texts with these words</p>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
