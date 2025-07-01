@@ -116,7 +116,9 @@ def main():
 
 @app.route('/upload1')
 def upload():
-    return render_template('upload.html')
+    filename = request.args.get('filename', '')
+    return render_template('upload.html', filename=filename)
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -131,14 +133,13 @@ def upload_file():
         file.save(filepath)
 
         try:
-           
-            result = process_local_pdf(filepath, filename)
-            return jsonify(result)
-
+            # zamiast zwracać JSON, zrób redirect do upload1 z filename
+            return redirect(url_for('upload', filename=filename))
         except Exception as e:
             return jsonify({'error': f'File processing error: {str(e)}'}), 500
 
     return jsonify({'error': 'Invalid file format'}), 400
+
 
 
 @app.route('/uploads/<filename>')
