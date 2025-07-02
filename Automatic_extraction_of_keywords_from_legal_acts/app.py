@@ -45,6 +45,20 @@ def extract_keywords(text):
     for phrase, score in raw_keywords:
         phrase_clean = phrase.strip().lower()
 
+         # wyklucz frazy typu 'minister:sm1'
+        if re.search(r':\w+', phrase_clean):
+            continue
+
+         # Od razu odrzucamy frazy zawierające dwukropek
+        if ':' in phrase_clean:
+            continue
+
+        if re.search(r'[:\d]', phrase_clean):
+            continue
+
+        if re.search(r'[^a-ząćęłńóśżź\s]', phrase_clean):
+            continue
+
         if len(phrase_clean) < 3 or len(phrase_clean.split()) > 4:
             continue
 
@@ -66,8 +80,12 @@ def extract_keywords(text):
         if lemma in seen_lemmas:
             continue
 
+        if ':' in lemma or re.search(r'[^a-ząćęłńóśżź\s]', lemma):
+            continue
+
         seen_lemmas.add(lemma)
-        filtered_keywords.append((phrase_clean, score))
+       # filtered_keywords.append((phrase_clean, score))
+        filtered_keywords.append((lemma, score))
 
         if len(filtered_keywords) >= 2:
             break
